@@ -1,0 +1,335 @@
+Data handling with R 
+========================================================
+css: R_presentation.css
+## Current Status
+Hiroki Matsui  
+2015/05/13
+
+この資料は
+========================================================
+### 諸処の事情でR を使う必要が生じた時、
+### コードから逃げずに戦う基礎知識（ググるための知識）を得る事を目的にした内部資料です。
+### そのため、網羅性や正確性を一部欠く表現があります。
+### 正確・網羅的な情報はググる等して資料をあたる等しましょう。
+
+
+本日お伝えしたいこと。
+========================================================
+- 前回演習の答え合わせ
+- 最近のR でデータハンドリング
+```{r echo=FALSE}
+data1 <- read.csv(# file 名
+                  file= "C:/Users/HEER_matsui/Desktop/data1.tsv", 
+                  # 1行目を列名にする。
+                  header = T,
+                  # tab 区切りのファイル
+                  sep = "\t",
+                  # 全てのカラムは文字列として読み込む。
+                  colClasses=rep("character",11))                 
+```
+```{r echo =FALSE}
+data2 <- read.csv(file= "http://u111u.info/k14z",
+                  header = T,
+                  colClasses=rep("character",12))   
+data3 <- read.csv(file= "http://u111u.info/k14F",
+                  header = T,
+                  colClasses=rep("character",8))   
+```
+
+演習
+========================================================
+### R を使ってデータハンドリングしてみましょう。
+### data1, data2, data3 を使って以下のデータを含むDPC病院に関するcsv を作りましょう。
+- 保険医療名称
+- 保険医療機関番号
+- 住所
+- 急性心筋梗塞の手術有り症例数
+- 急性心筋梗塞の手術無し症例数
+
+演習
+========================================================
+## data1
+[保険医療機関一覧](http://plaza.umin.ac.jp/~hsmp/index.html)  
+- 20110301時点医療機関一覧、医療機関加算届出一覧
+
+## data2, data3
+[http://www.mhlw.go.jp/bunya/iryouhoken/database/sinryo/dpc.html
+](http://www.mhlw.go.jp/bunya/iryouhoken/database/sinryo/dpc.html
+)  
+- 平成22年度DPC病院一覧（施設概要表より）
+- 平成23年度MDC05手術有無別症例数（疾患別・手術有無別・処置１有無別集計　ＭＤＣ０５より）
+
+
+演習(ヒント)
+========================================================
+class: small-code
+- data1には医科・歯科・薬局が含まれます。
+- data2にはDPC病院の医療機関コード（保健医療機関コードと本質的に同じ）と告示番号が含まれます。
+- data1の保険医療機関コードは頭2桁が都道府県番号を示します。
+- 都道府県コード一覧は[こちら](http://u111u.info/k1bc)
+```{r}
+x <- c("a","b","c")
+y <- c("A","B","C")
+paste0(x,y)
+```
+
+演習(ヒント)
+========================================================
+class: small-code
+- data3は、患者数０の病院が"-“になっている。これだと、集計が出来ない。
+```{r}
+x <- c("1","2","3","-")
+x <- as.numeric(x)
+x[is.na(x)] <- 0
+x 
+fun_chr_0 <- function(x){
+  x <- as.numeric(x)
+  x[is.na(x)] <- 0
+  return(x)
+  }
+
+```
+
+
+演習(解答例)
+========================================================
+class: small-code
+```{r warning=FALSE}
+data_hosp <- data1[data1$保険区分 == "医科", ]
+data_pref <- read.csv(file = "http://u111u.info/k1bc", colClasses = c(rep("character")))
+data_hosp_dpc <- merge(data2, data_pref, by.x = "都道府県", by.y = "都道府県名称")
+data_hosp_dpc$保険医療機関コード <- paste0(data_hosp_dpc$都道府県コード, data_hosp_dpc$医療機関コード)
+data_hosp_dpc_pt <- data3
+data_hosp_dpc_pt[,3] <- fun_chr_0(data_hosp_dpc_pt[,3])
+data_hosp_dpc_pt[,4] <- fun_chr_0(data_hosp_dpc_pt[,4])
+data_hosp_dpc_pt[,5] <- fun_chr_0(data_hosp_dpc_pt[,5])
+data_hosp_dpc_pt[,6] <- fun_chr_0(data_hosp_dpc_pt[,6])
+data_hosp_dpc_pt[,7] <- fun_chr_0(data_hosp_dpc_pt[,7])
+data_hosp_dpc_pt[,8] <- fun_chr_0(data_hosp_dpc_pt[,8])
+data <- merge(data_hosp_dpc, data_hosp_dpc_pt, by.x = "告示番号.2", by.y = "告示番号")
+data <- merge(data, data_hosp, by = "保険医療機関コード")
+data <- data[, c("施設名.x", "保険医療機関コード", "住所", "X97", "X99")]
+write.csv(data,"data.csv",row.names=F)
+```
+
+
+演習(解答例)
+========================================================
+class: small-code
+### まずは、医科の施設に絞る。
+```{r warning=FALSE,,out.width=8}
+data_hosp <- data1[data1$保険区分 == "医科", ]
+table(data_hosp$保険区分)
+```
+
+演習(解答例)
+========================================================
+class: small-code
+### 次に、医療機関コードに都道府県情報を追加
+```{r warning=FALSE}
+data_pref <- read.csv(file = "http://u111u.info/k1bc", colClasses = c(rep("character")))
+data_hosp_dpc <- merge(data2, data_pref, by.x = "都道府県", by.y = "都道府県名称")
+data_hosp_dpc$保険医療機関コード <- paste0(data_hosp_dpc$都道府県コード, data_hosp_dpc$医療機関コード)
+head(data_hosp_dpc)
+```
+
+演習(解答例)
+========================================================
+class: small-code
+### 次に、"-" を0に変換
+```{r warning=FALSE}
+data_hosp_dpc_pt <- data3
+data_hosp_dpc_pt[,3] <- fun_chr_0(data_hosp_dpc_pt[,3])
+data_hosp_dpc_pt[,4] <- fun_chr_0(data_hosp_dpc_pt[,4])
+data_hosp_dpc_pt[,5] <- fun_chr_0(data_hosp_dpc_pt[,5])
+data_hosp_dpc_pt[,6] <- fun_chr_0(data_hosp_dpc_pt[,6])
+data_hosp_dpc_pt[,7] <- fun_chr_0(data_hosp_dpc_pt[,7])
+data_hosp_dpc_pt[,8] <- fun_chr_0(data_hosp_dpc_pt[,8])
+head(data_hosp_dpc_pt)
+```
+
+演習(解答例)
+========================================================
+class: small-code
+### データの突合
+```{r warning=FALSE}
+data <- merge(data_hosp_dpc, data_hosp_dpc_pt, by.x = "告示番号.2", by.y = "告示番号")
+data <- merge(data, data_hosp, by = "保険医療機関コード")
+data <- data[, c("施設名.x", "保険医療機関コード", "住所", "X97", "X99")]
+head(data)
+```
+
+演習(解答例)
+========================================================
+class: small-code
+### データの保存
+```{r warning=FALSE}
+write.csv(data,"data.csv",row.names=F)
+```
+
+本日お伝えしたいこと。
+========================================================
+- 前回演習の答え合わせ
+- 最近のR でデータハンドリング
+
+従来のR によるデータハンドリングの面倒な点
+========================================================
+- 遅い
+- 集計がやりにくい
+- データのサブセット取得するのに長いコマンド
+- ((((()))))括弧が多すぎて読みにくい
+
+Hadley Wickham のご紹介
+========================================================
+![](HW.jpg)
+
+- R 界の凄い人・Rice University の教員
+- 昔ながらのR の機能を拡張しまくってる。
+- ggplot2, plyr(dplyr), reshape(reshape2), stringr, etc.
+
+dplyr 等のパッケージ紹介
+========================================================
+## dplyr
+- R のデータハンドリングを楽にしてくれる。  
+
+## tidyr
+- データのdplyr に合う形でデータの整形を手助けしてくれる。  
+
+## data.table
+- R へのデータ読み込みを高速化してくれる。
+
+
+データハンドリング用のパッケージのインストール
+========================================================
+class: small-code
+```{r eval=FALSE}
+install.packages(c("dplyr","tidyr","data.table"))
+```
+
+
+データハンドリング用のパッケージのインストール
+========================================================
+class: small-code
+```{r}
+library(dplyr)
+library(tidyr)
+library(data.table)
+```
+
+
+data.table を用いた高速なCSV読み込み
+========================================================
+class: small-code
+以下の様に読み込めます。
+data1.tsvに含まれるエラーのせいで少しだけ修正が必要
+```{r}
+data1 <- data.table::fread(input = "data1.tsv",
+                       header = TRUE,
+                       autostart = 1,
+                      colClasses = c(rep("character")))
+head(data1)
+```
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+## filter(data, 条件)
+```{r}
+data <- filter(data1, 保険区分 == "医科")
+head(data)
+```
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+## select(data, 列名)
+```{r}
+data <- select(data1, 保険区分, 都道府県, 保険医療機関コード)
+head(data)
+```
+
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+## テーブルのjoin
+- innner_join(data1,data2, by)
+- left_join(data1,data2, by)
+- full_join(data1,data2, by)
+- semi_join(data1,data2, by)
+- anti_join(data1,data2, by)
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+```{r}
+head(data2)
+```
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+```{r}
+data <- inner_join(data2,data_pref,by=c("都道府県" = "都道府県名称"))
+head(data)
+```
+
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+## mutate(data, 列名=算出方法)
+```{r}
+head(data)
+```
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+## mutate(data, 列名=算出方法)
+```{r}
+data <- mutate(data,保険医療機関コード = paste0(都道府県コード, 医療機関コード))
+head(data)
+```
+
+
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+## %>%
+チェイン演算子
+```{r}
+data2 %>%
+  inner_join(.,data_pref,by=c("都道府県" = "都道府県名称")) %>%
+  mutate(.,保険医療機関コード = paste0(都道府県コード, 医療機関コード)) %>%
+  select(.,施設名, 都道府県コード, 保険医療機関コード) %>%
+  head(.)
+```
+
+
+dplyr を用いたデータのハンドリング
+========================================================
+class: small-code
+## groupp_by(data, group)
+## surmmarise(data, 集計方法)
+```{r}
+data2 %>%
+  inner_join(.,data_pref,by=c("都道府県" = "都道府県名称")) %>%
+  mutate(.,保険医療機関コード = paste0(都道府県コード, 医療機関コード)) %>%
+  group_by(.,都道府県コード,都道府県) %>%
+  summarise(cnt = n())
+```
+
+
+演習
+========================================================
+class: small-code
+data2, data3 を用いて都道府県毎の平均的な100病床あたりの急性心筋梗塞症例数を算出してください。
+
+演習（参考資料）
+========================================================
+
+[dplyr](http://cran.r-project.org/web/packages/dplyr/index.html)  
+[Data Manipulation in R with dplyr](https://www.datacamp.com/courses/dplyr-data-manipulation-r-tutorial)  
+[Cheat Sheet](http://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf)
